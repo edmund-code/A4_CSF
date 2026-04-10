@@ -14,6 +14,17 @@ unsigned long partition( int64_t *arr, unsigned long start, unsigned long end );
 int quicksort( int64_t *arr, unsigned long start, unsigned long end, unsigned long par_threshold );
 
 // TODO: declare additional helper functions if needed
+// Child struct to keep track of child process information
+typedef struct {
+  int created; // 1 if child process was successfully created, 0 otherwise
+  int waited; // 1 if parent waited for child process to complete, 0 otherwise
+  int status; // status code returned by waitpid when waiting for child process, or -1 if waitpid failed
+  pid_t pid; // process id of child process, or -1 if child process not successfully created
+} Child;
+
+Child quicksort_subproc( int64_t *arr, unsigned long start, unsigned long end, unsigned long par_threshold );
+void quicksort_wait( Child *child );
+int quicksort_check_success( Child *child );
 
 int main( int argc, char **argv ) {
   unsigned long par_threshold;
@@ -201,12 +212,14 @@ int quicksort( int64_t *arr, unsigned long start, unsigned long end, unsigned lo
   unsigned long mid = partition( arr, start, end );
 
   // Recursively sort the left and right partitions
-  int left_success, right_success;
   // TODO: modify this code so that the recursive calls execute in child processes
-  left_success = quicksort( arr, start, mid, par_threshold );
-  right_success = quicksort( arr, mid + 1, end, par_threshold );
+  Child left = quicksort_subproc( arr, start, mid, par_threshold );
+  Child right = quicksort_subproc( arr, mid + 1, end, par_threshold );
 
-  return left_success && right_success;
+  quicksort_wait( &left );
+  quicksort_wait( &right );
+
+  return quicksort_check_success( &left ) && quicksort_check_success( &right );
 }
 
 // TODO: define additional helper functions if needed
@@ -232,7 +245,7 @@ Child quicksort_subproc( int64_t *arr, unsigned long start, unsigned long end, u
   pid_t pid = fork();
 
   if ( pid < 0 ) {
-    return child
+    return child;
   }
 
   if ( pid == 0) {
