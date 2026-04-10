@@ -210,3 +210,72 @@ int quicksort( int64_t *arr, unsigned long start, unsigned long end, unsigned lo
 }
 
 // TODO: define additional helper functions if needed
+
+// Create a child process to sort a subrange of the array
+// Parameters:
+//    arr: pointer to first element of array
+//    start: lower bound index of subrange to sort
+//    end:upper bound index of subrange to sort
+//    par_threshold: threshold controlling when quicksort switches from parallel recursion to sequential qsort
+// Return:
+//   a Child record describing the attempted child process creation;
+//   if child.created is 1, then child.pid is the process id of the
+//   child and the parent is responsible for waiting for it;
+//   if child.created is 0, then fork failed
+Child quicksort_subproc( int64_t *arr, unsigned long start, unsigned long end, unsigned long par_threshold ) {
+  Child child;
+  child.created = 0;
+  child.waited = 0;
+  child.status = 0;
+  child.pid = -1;
+  
+  pid_t pid = fork();
+
+  if ( pid < 0 ) {
+    return child
+  }
+
+  if ( pid == 0) {
+    int success = quicksort( arr, start, end, par_threshold );
+    if (success) {
+      exit( 0 );
+    } else {
+      exit( 1 );
+    }
+  }
+
+  child.pid = pid;
+  child.created = 1;
+  return child;
+}
+
+// Wait for a child process to complete if needed
+// Parameters:
+//   child: pointer to Child record describing a child process
+//
+// Return:
+//   none
+void quicksort_wait( Child *child ) {
+  if ( child->created && !child->waited ) {
+    if ( waitpid( child->pid, &child->status, 0 ) < 0 ) {
+      child->status = -1;
+    }
+    child->waited = 1;
+  }
+}
+
+// Check whether a child process completed successfully
+//// Parameters:
+//   child: pointer to Child record describing a child process
+//
+// Return:
+//   1 if the child was successfully created, successfully waited for, exited normally, and exited with status code 0;
+//   0 otherwise
+int quicksort_check_success( Child *child ) {
+  if ( child->created ) {
+    quicksort_wait( child );
+    return child->status != -1 && WIFEXITED( child->status ) && WEXITSTATUS( child->status ) == 0;
+  } else {
+    return 0;
+  }
+}
