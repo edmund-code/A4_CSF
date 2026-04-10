@@ -26,14 +26,35 @@ int main( int argc, char **argv ) {
 
   // open the named file
   // TODO: open the named file
+  // open argument 1 with read and write permissions, check for failed open
+  fd = open( argv[1], O_RDWR );
+  if ( fd < 0 ) {
+    perror( "open" );
+    exit( 1 );
+  }
 
   // determine file size and number of elements
   unsigned long file_size, num_elements;
   // TODO: determine the file size and number of elements
+  // use stat struct to use fstat function to get file metadata, check for failed fstat
+  struct stat statbuf;
+  if ( fstat( fd, &statbuf ) != 0 ) {
+    perror( "fstat" );
+    exit( 1 );
+  }
+  file_size = statbuf.st_size;
+  num_elements = file_size / sizeof(int64_t);
 
   // mmap the file data
   int64_t *arr;
   // TODO: mmap the file data
+  // use mmap command to map entire file into memroy, check for failed mmap
+  // use both read and write permissions and use share mapping so changes are written to file (sorting later)
+  arr = mmap( NULL, file_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0 );
+  if ( arr == MAP_FAILED ) {
+    perror( "mmap" );
+    exit( 1 );
+  }
 
   // Sort the data!
   int success;
@@ -45,7 +66,11 @@ int main( int argc, char **argv ) {
 
   // Unmap the file data
   // TODO: unmap the file data
-
+  //use munmap to unmap the file data, check for failed munmap
+  if ( munmap( arr, file_size ) != 0 ) {
+    perror( "munmap" );
+    exit( 1 );
+  }
   return 0;
 }
 
