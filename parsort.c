@@ -51,27 +51,38 @@ int main( int argc, char **argv ) {
   struct stat statbuf;
   if ( fstat( fd, &statbuf ) != 0 ) {
     perror( "fstat" );
+    close( fd );
     exit( 1 );
   }
   file_size = statbuf.st_size;
+  
+  if ( file_size % sizeof(int64_t) != 0 ) {
+    fprintf(stderr, "Error: file size is invalid\n");
+    close(fd);
+    exit(1);
+  }
+
   num_elements = file_size / sizeof(int64_t);
 
   // mmap the file data
   int64_t *arr;
   // TODO: mmap the file data
-  // use mmap command to map entire file into memroy, check for failed mmap
+  // use mmap command to map entire file into memory, check for failed mmap
   // use both read and write permissions and use share mapping so changes are written to file (sorting later)
   arr = mmap( NULL, file_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0 );
   if ( arr == MAP_FAILED ) {
     perror( "mmap" );
+    close( fd );
     exit( 1 );
   }
+  close( fd );
 
   // Sort the data!
   int success;
   success = quicksort( arr, 0, num_elements, par_threshold );
   if ( !success ) {
     fprintf( stderr, "Error: sorting failed\n" );
+    munmap( arr, file_size );
     exit( 1 );
   }
 
@@ -228,7 +239,7 @@ int quicksort( int64_t *arr, unsigned long start, unsigned long end, unsigned lo
 // Parameters:
 //    arr: pointer to first element of array
 //    start: lower bound index of subrange to sort
-//    end:upper bound index of subrange to sort
+//    end: upper bound index of subrange to sort
 //    par_threshold: threshold controlling when quicksort switches from parallel recursion to sequential qsort
 // Return:
 //   a Child record describing the attempted child process creation;
@@ -278,7 +289,7 @@ void quicksort_wait( Child *child ) {
 }
 
 // Check whether a child process completed successfully
-//// Parameters:
+// Parameters:
 //   child: pointer to Child record describing a child process
 //
 // Return:
